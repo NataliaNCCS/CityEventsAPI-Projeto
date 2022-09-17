@@ -9,10 +9,15 @@ namespace CityEventsAPI.Core.Interfaces
 {
     public interface ICityEventService
     {
-        List<CityEvent> GetAllEvents();
-        CityEvent GetCityEventsById(long id);
-        bool InsertCityEvent(CityEvent cityEvent);
-        bool UpdateCityEvent(long id, CityEvent cityEvent);
-        bool DeleteCityEvent(long id);
+        public Task<List<CityEvent>> GetAllCityEventsAsync();
+        public Task<List<CityEvent>> GetCityEventsByNameAsync(string title);
+        public Task<List<CityEvent>> GetCityEventsByLocalAndDateAsync(string local, DateTime dateHourEvent);
+        public Task<List<CityEvent>> GetCityEventsByPriceAndDateAsync(decimal min, decimal max, DateTime dateHourEvent);
+        public Task<CityEvent> GetCityEventsByIdAsync(long? id);
+        public Task<bool> InsertNewEventDBAsync(CityEvent cityEvent);
+        public Task<bool> UpdateCityEventAsync(long id, CityEvent cityEvent);
+        public Task<bool> DeleteCityEventAsync(long id);
+        public Task<bool> AlterStatusAsync(long Id);
+
     }
 }

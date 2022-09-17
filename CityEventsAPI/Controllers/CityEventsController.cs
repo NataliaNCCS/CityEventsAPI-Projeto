@@ -1,7 +1,8 @@
 ﻿using CityEventsAPI.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using CityEventsAPI.Core.Models;
-
+using CityEventsAPI.Filters;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CityEventsAPI.Controllers
 {
@@ -9,6 +10,7 @@ namespace CityEventsAPI.Controllers
     [Route("[controller]")]
     [Consumes("application/json")]
     [Produces("application/json")]
+    [Authorize(Roles = "admin, cliente")]
 
     public class CityEventsController : ControllerBase
     {
@@ -19,59 +21,83 @@ namespace CityEventsAPI.Controllers
             _cityEventService = cityEventService;
         }
 
-
-        [HttpGet("/eventos/consultar")]
-        public ActionResult<List<CityEvent>> GetEvents()
+        [HttpGet("/eventos/consultarTodosOsEventos")]
+        [Authorize(Roles = "admin, cliente")]
+        public async Task<ActionResult<List<CityEvent>>> GetEvents()
         {
-            var eventos = _cityEventService.GetAllEvents();
-            return Ok(eventos);
+            var eventos = _cityEventService.GetAllCityEventsAsync();
+            return Ok(await eventos);
         }
 
-
-        [HttpGet("/eventos/{idEvent}/consultar")]
+        [HttpGet("/eventos/consultarEventosPorNome")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult GetEventById(long idEvent)
+        [Authorize(Roles = "admin, cliente")]
+        public async Task<IActionResult> GetEventsByName(string nome)
         {
-            var idConsultado = _cityEventService.GetCityEventsById(idEvent);
-
-            if (idConsultado == null)
-            {
-                return BadRequest();
-            }
-
-            return Ok(idConsultado);
+            return Ok(await _cityEventService.GetCityEventsByNameAsync(nome));
         }
 
 
-        [HttpPost("/eventos/inserir")]
+        [HttpGet("/eventos/consultarEventosPorLocalEData")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Authorize(Roles = "admin, cliente")]
+        public async Task<IActionResult> GetEventsByLocalAndDate(string local, DateTime date)
+        {
+            return Ok(await _cityEventService.GetCityEventsByLocalAndDateAsync(local, date));
+        }
+
+        [HttpGet("/eventos/consultarEventosPorPrecoEData")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Authorize(Roles = "admin, cliente")]
+        public async Task<IActionResult> GetEventsByPriceAndDate(decimal min, decimal max, DateTime date)
+        {
+            return Ok(await _cityEventService.GetCityEventsByPriceAndDateAsync(min, max, date));
+        }
+
+
+
+        [HttpGet("/eventos/{idEvent}/consultarEventoPorId")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ServiceFilter(typeof(LogActionFilter_CityEventExists))]
+        [Authorize(Roles = "admin, cliente")]
+        public async Task<IActionResult> GetEventById(long idEvent)
+        {
+            return Ok(await _cityEventService.GetCityEventsByIdAsync(idEvent));
+        }
+
+
+        [HttpPost("/eventos/inserirEvento")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public IActionResult InsertEvent(CityEvent cityEvent)
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> InsertEvent(CityEvent cityEvent)
         {
-            bool eventoInserido = _cityEventService.InsertCityEvent(cityEvent);
-
-            if (!eventoInserido)
+        
+            if (! await _cityEventService.InsertNewEventDBAsync(cityEvent))
             {
-                return BadRequest();
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
 
             return Created(nameof(InsertEvent), cityEvent);
 
         }
 
-        [HttpPut("/eventos/{idEvent}/atualizar")]
+        [HttpPut("/eventos/{idEvent}/atualizarEvento")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-
-        public IActionResult ÚpdateEvent(long idEvent, CityEvent cityEvent)
+        [ServiceFilter(typeof(LogActionFilter_CityEventExists))]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> UpdateEvent(long idEvent, CityEvent cityEvent)
         {
-            bool eventoAtualizado = _cityEventService.UpdateCityEvent(idEvent, cityEvent);
 
-            if (!eventoAtualizado)
+            if (! await _cityEventService.UpdateCityEventAsync(idEvent, cityEvent))
             {
-                return BadRequest();
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
 
             return NoContent();
@@ -79,16 +105,18 @@ namespace CityEventsAPI.Controllers
         }
 
 
-        [HttpDelete("/eventos/{idEvent}/deletar")]
+        [HttpDelete("/eventos/{idEvent}/deletarEvento")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult DeleteEvent(long idEvent)
+        [ServiceFilter(typeof(LogActionFilter_CityEventExists))]
+        [ServiceFilter(typeof(LogActionFilter_DeleteEventFilter))]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> DeleteEvent(long idEvent)
         {
-            var eventoDeletado = _cityEventService.DeleteCityEvent(idEvent);
 
-            if (!eventoDeletado)
+            if (! await _cityEventService.DeleteCityEventAsync(idEvent))
             {
-                return BadRequest();
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
 
             return NoContent();
